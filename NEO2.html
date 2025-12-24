@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEOMOTION.ID - Baby Motion Detection System</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getDatabase, ref, onValue, push, set } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+        import { getStorage, ref as sRef, uploadString, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
+        
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAprtPLZIm__9yazoqvzENY3UpVqBcAm4I",
+            authDomain: "haloinkubator-89a07.firebaseapp.com",
+            databaseURL: "https://haloinkubator-89a07-default-rtdb.firebaseio.com",
+            projectId: "haloinkubator-89a07",
+            storageBucket: "haloinkubator-89a07.firebasestorage.app",
+            messagingSenderId: "400649240712",
+            appId: "1:400649240712:web:70c4db41364a10651cdf3d",
+            measurementId: "G-HXDD5B4SQD"
+        };
+        
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        window.firebaseAuth = getAuth(app);
+        window.firebaseDB = getDatabase(app);
+        window.firebaseStorage = getStorage(app);
+        window.firebaseModules = {
+            onAuthStateChanged,
+            signInWithEmailAndPassword,
+            createUserWithEmailAndPassword,
+            updateProfile,
+            signOut,
+            ref,
+            onValue,
+            push,
+            set,
+            sRef,
+            uploadString,
+            getDownloadURL
+        };
+        
+        // Initialize app after Firebase is ready
+        window.dispatchEvent(new Event('firebase-ready'));
+    </script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    
+    <!-- OpenCV.js -->
+    <script src="kamera.js"></script>
+
+    
+    <style>
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .animate-fadeIn {
+            animation: fadeIn 0.6s ease-out;
+        }
+        
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+        
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-white">
+        <div class="text-center">
+            <div class="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p class="text-lg font-semibold text-blue-600">Loading...</p>
+        </div>
+    </div>
+    
+    <!-- Login Screen -->
+    <div id="login-screen" class="hidden min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-400 via-blue-500 to-purple-600 p-6">
+        <div class="w-full max-w-md animate-fadeIn">
+            <div class="bg-white rounded-2xl shadow-xl border border-slate-200 p-8 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+                <!-- Logo/Icon -->
+                <div class="flex justify-center mb-6">
+                    <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                        </svg>
+                    </div>
+                </div>
+                
+                <!-- Title -->
+                <div class="text-center mb-8">
+                    <h1 class="text-3xl font-bold text-slate-900 mb-2">NEOMOTION.ID</h1>
+                    <p class="text-slate-600">Sign in to continue</p>
+                </div>
+                
+                <form id="login-form" class="space-y-5">
+                    <!-- Email Input -->
+                    <div>
+                        <label for="login-email" class="block text-sm font-medium text-slate-700 mb-2">Email</label>
+                        <div class="relative">
+                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                            </svg>
+                            <input id="login-email" type="email" class="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" placeholder="your@email.com" required>
+                        </div>
+                    </div>
+                    
+                    <!-- Password Input -->
+                    <div>
+                        <label for="login-password" class="block text-sm font-medium text-slate-700 mb-2">Password</label>
+                        <div class="relative">
+                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                            </svg>
+                            <input id="login-password" type="password" class="w-full pl-11 pr-12 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" placeholder="Enter your password" required>
+                            <button type="button" id="login-toggle-password" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+                                <svg id="login-eye-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Forgot Password Link -->
+                    <div class="text-right">
+                        <button type="button" id="forgot-password-btn" class="text-sm text-blue-600 hover:text-blue-700 hover:underline transition-colors">
+                            Forgot Password?
+                        </button>
+                    </div>
+                    
+                    <!-- Error Message -->
+                    <div id="login-error" class="hidden bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2">
+                        <svg class="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <p id="login-error-text" class="text-red-700 text-sm"></p>
+                    </div>
+                    
+                    <!-- Sign In Button -->
+                    <button type="submit" id="login-submit-btn" class="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-semibold">
+                        Sign In
+                    </button>
+                    
+                    <!-- Switch to Sign Up -->
+                    <div class="text-center pt-4">
+                        <p class="text-sm text-slate-600">
+                            Don't have an account? 
+                            <button type="button" id="switch-to-signup" class="text-blue-600 font-semibold hover:text-blue-700 hover:underline transition-colors">
+                                Create Account
+                            </button>
+                        </p>
+                    </div>
+                </form>
+                
+                <!-- Security Notice -->
+                <div class="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
+                    <p class="text-xs text-blue-700 text-center">
+                        🔒 Secure connection via Firebase Authentication
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sign Up Screen -->
+    <div id="signup-screen" class="hidden min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-400 via-blue-500 to-purple-600 p-6">
+        <div class="w-full max-w-md animate-fadeIn">
+            <div class="bg-white rounded-2xl shadow-xl border border-slate-200 p-8 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+                <!-- Logo/Icon -->
+                <div class="flex justify-center mb-6">
+                    <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                        </svg>
+                    </div>
+                </div>
+                
+                <!-- Title -->
+                <div class="text-center mb-8">
+                    <h1 class="text-3xl font-bold text-slate-900 mb-2">Create Account</h1>
+                    <p class="text-slate-600">Sign up to get started</p>
+                </div>
+                
+                <form id="signup-form" class="space-y-5">
+                    <!-- Name Input -->
+                    <div>
+                        <label for="signup-name" class="block text-sm font-medium text-slate-700 mb-2">Full Name</label>
+                        <div class="relative">
+                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                            </svg>
+                            <input id="signup-name" type="text" class="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" placeholder="John Doe">
+                        </div>
+                    </div>
+                    
+                    <!-- Email Input -->
+                    <div>
+                        <label for="signup-email" class="block text-sm font-medium text-slate-700 mb-2">Email</label>
+                        <div class="relative">
+                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                            </svg>
+                            <input id="signup-email" type="email" class="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" placeholder="your@email.com">
+                        </div>
+                    </div>
+                    
+                    <!-- Password Input -->
+                    <div>
+                        <label for="signup-password" class="block text-sm font-medium text-slate-700 mb-2">Password</label>
+                        <div class="relative">
+                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                            </svg>
+                            <input id="signup-password" type="password" class="w-full pl-11 pr-12 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" placeholder="Enter password (min. 6 characters)">
+                            <button type="button" id="signup-toggle-password" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+                                <svg id="signup-eye-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Confirm Password Input -->
+                    <div>
+                        <label for="signup-confirm-password" class="block text-sm font-medium text-slate-700 mb-2">Confirm Password</label>
+                        <div class="relative">
+                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                            </svg>
+                            <input id="signup-confirm-password" type="password" class="w-full pl-11 pr-12 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" placeholder="Re-enter your password">
+                            <button type="button" id="signup-toggle-confirm-password" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+                                <svg id="signup-confirm-eye-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Error Message -->
+                    <div id="signup-error" class="hidden bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2">
+                        <svg class="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <p id="signup-error-text" class="text-red-700 text-sm"></p>
+                    </div>
+                    
+                    <!-- Success Message -->
+                    <div id="signup-success" class="hidden bg-green-50 border border-green-200 rounded-xl p-3 flex items-start gap-2">
+                        <svg class="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        <p id="signup-success-text" class="text-green-700 text-sm"></p>
+                    </div>
+                    
+                    <!-- Sign Up Button -->
+                    <button type="submit" id="signup-submit-btn" class="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-semibold">
+                        Sign Up
+                    </button>
+                    
+                    <!-- Switch to Login -->
+                    <div class="text-center pt-4">
+                        <p class="text-sm text-slate-600">
+                            Already have an account? 
+                            <button type="button" id="switch-to-login" class="text-blue-600 font-semibold hover:text-blue-700 hover:underline transition-colors">
+                                Sign In
+                            </button>
+                        </p>
+                    </div>
+                </form>
+                
+                <!-- Security Notice -->
+                <div class="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
+                    <p class="text-xs text-blue-700 text-center">
+                        🔒 Your data is secured with Firebase Authentication
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Dashboard Screen -->
+    <div id="dashboard-screen" class="hidden min-h-screen p-6 bg-gradient-to-b from-blue-50 to-white">
+        <div class="max-w-6xl mx-auto space-y-6">
+            <!-- Header with Logout -->
+            <header class="text-center relative">
+                <button id="logout-btn" class="absolute right-0 top-0 flex items-center gap-2 px-4 py-2 rounded-xl bg-red-600 text-white hover:bg-red-700 transition-colors font-semibold">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                    </svg>
+                    Logout
+                </button>
+                <h1 class="text-4xl font-bold text-blue-800 mb-2">Realtime Motion Detection</h1>
+                <p class="text-lg text-blue-600">Deteksi gerakan via kamera (frame differencing + contour)</p>
+                <p class="text-sm text-red-600 mt-2">
+                    ⚠️ Untuk mengakses kamera: jalankan via <strong>HTTPS</strong> atau <strong>localhost</strong> & beri izin kamera.
+                </p>
+            </header>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Video & Overlay -->
+                <div class="lg:col-span-2 bg-white rounded-2xl p-4 shadow-lg">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-2xl font-bold text-blue-800">Kamera</h2>
+                        <div class="text-sm text-slate-500 font-semibold">
+                            FPS: <span id="fps-display">0</span>
+                        </div>
+                    </div>
+                    
+                    <div class="relative rounded-xl overflow-hidden">
+                        <video id="video-element" class="w-full h-auto bg-slate-100" autoplay playsinline muted></video>
+                        <canvas id="overlay-canvas" class="absolute inset-0 cursor-move"></canvas>
+                    </div>
+                    
+                    <div class="mt-4 flex flex-wrap gap-3">
+                        <button id="start-camera-btn" class="px-5 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center gap-2 font-semibold">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            </svg>
+                            Start Camera
+                        </button>
+                        <button id="stop-camera-btn" class="px-5 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 transition-colors flex items-center gap-2 font-semibold">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/>
+                            </svg>
+                            Stop
+                        </button>
+                        <button id="toggle-roi-btn" class="px-5 py-2 rounded-xl bg-slate-200 hover:opacity-90 transition-colors font-semibold">
+                            ROI: Off
+                        </button>
+                        <button id="capture-btn" class="px-5 py-2 rounded-xl bg-purple-600 text-white hover:bg-purple-700 transition-colors font-semibold">
+                            Capture
+                        </button>
+                        <label class="flex items-center gap-2 text-sm ml-auto cursor-pointer font-semibold">
+                            <input type="checkbox" id="beep-checkbox" class="w-4 h-4">
+                            Bunyi saat gerakan
+                        </label>
+                    </div>
+                    
+                    <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-blue-50 p-3 rounded-xl">
+                            <p class="text-xs text-blue-700 font-semibold">Threshold</p>
+                            <input type="range" id="threshold-slider" min="5" max="60" value="20" class="w-full">
+                            <div class="text-sm font-semibold" id="threshold-value">20</div>
+                        </div>
+                        <div class="bg-teal-50 p-3 rounded-xl">
+                            <p class="text-xs text-teal-700 font-semibold">Min Area (px)</p>
+                            <input type="range" id="minarea-slider" min="200" max="20000" value="2500" class="w-full">
+                            <div class="text-sm font-semibold" id="minarea-value">2500</div>
+                        </div>
+                        <div class="bg-amber-50 p-3 rounded-xl">
+                            <p class="text-xs text-amber-700 font-semibold">Cooldown (ms)</p>
+                            <input type="range" id="cooldown-slider" min="300" max="5000" value="1200" class="w-full">
+                            <div class="text-sm font-semibold" id="cooldown-value">1200</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Charts -->
+                    <div class="mt-6">
+                        <h3 class="text-xl font-bold text-slate-800 mb-2">Grafik Suhu (30 detik)</h3>
+                        <div class="h-32">
+                            <canvas id="temp-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="mt-6">
+                        <h3 class="text-xl font-bold text-slate-800 mb-2">Grafik Kelembapan (30 detik)</h3>
+                        <div class="h-32">
+                            <canvas id="hum-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Status Panel -->
+                <div class="bg-white rounded-2xl p-4 shadow-lg space-y-4">
+                    <h2 class="text-2xl font-bold text-blue-800">Status</h2>
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-green-50 p-3 rounded-xl">
+                            <p class="text-xs text-green-700 font-semibold">Gerakan Terdeteksi</p>
+                            <p class="text-xl font-bold text-green-900" id="motion-status">Tidak</p>
+                        </div>
+                        <div class="bg-indigo-50 p-3 rounded-xl">
+                            <p class="text-xs text-indigo-700 font-semibold">Hitungan Event</p>
+                            <p class="text-xl font-bold text-indigo-900" id="event-count">0</p>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-violet-50 p-3 rounded-xl">
+                        <p class="text-xs text-violet-700 font-semibold">Frekuensi Gerakan</p>
+                        <p class="text-xl font-bold text-violet-900">
+                            <span id="motion-per-minute">0</span> kali/menit
+                        </p>
+                        <p class="text-xs text-violet-600 mt-1">Normal: 6-9 kali/menit</p>
+                    </div>
+                    
+                    <!-- Normal Motion Alert -->
+                    <div id="motion-alert" class="hidden bg-red-50 border border-red-200 p-3 rounded-xl">
+                        <div class="text-lg font-bold text-red-800">ALERT: Gerakan besar terdeteksi!</div>
+                        <div class="text-sm text-red-700" id="motion-alert-detail"></div>
+                    </div>
+                    
+                    <!-- Abnormal Motion Frequency Alert -->
+                    <div id="abnormal-alert" class="hidden bg-red-600 border-2 border-red-800 p-4 rounded-xl animate-pulse">
+                        <div class="text-xl font-bold text-white">⚠️ GERAKAN BAYI TIDAK NORMAL</div>
+                        <div class="text-sm text-red-100 mt-1">
+                            Frekuensi: <span id="abnormal-frequency">0</span> kali/menit
+                        </div>
+                        <div class="text-xs text-red-100 mt-1">(Normal: 6-9 kali/menit)</div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-xl font-bold text-slate-800 mb-2">Hasil Tangkapan</h3>
+                        <div id="captures-container" class="grid grid-cols-2 gap-2 max-h-60 overflow-auto">
+                            <!-- Captures will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Application State
+        const AppState = {
+            currentUser: null,
+            currentScreen: 'loading',
+            cvReady: false,
+            stream: null,
+            rafId: null,
+            prevGray: null,
+            tempChart: null,
+            humChart: null,
+            fps: 0,
+            hasMotion: false,
+            eventCount: 0,
+            useROI: false,
+            roi: null,
+            threshold: 20,
+            minArea: 2500,
+            cooldown: 1200,
+            beepEnabled: false,
+            alertVisible: false,
+            alertDetail: '',
+            captures: [],
+            lastEventTime: 0,
+            lastTs: performance.now(),
+            dragging: false,
+            dragOffset: { x: 0, y: 0 },
+            motionTimestamps: [],
+            motionPerMinute: 0,
+            abnormalMotionAlert: false
+        };
+        
+        // UI Helper Functions
+        function showScreen(screenName) {
+            document.getElementById('loading-screen').classList.add('hidden');
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('signup-screen').classList.add('hidden');
+            document.getElementById('dashboard-screen').classList.add('hidden');
+            
+            if (screenName === 'loading') {
+                document.getElementById('loading-screen').classList.remove('hidden');
+            } else if (screenName === 'login') {
+                document.getElementById('login-screen').classList.remove('hidden');
+            } else if (screenName === 'signup') {
+                document.getElementById('signup-screen').classList.remove('hidden');
+            } else if (screenName === 'dashboard') {
+                document.getElementById('dashboard-screen').classList.remove('hidden');
+            }
+            
+            AppState.currentScreen = screenName;
+        }
+        
+        function showError(elementId, message) {
+            const errorEl = document.getElementById(elementId);
+            const errorTextEl = document.getElementById(elementId + '-text');
+            errorEl.classList.remove('hidden');
+            errorTextEl.textContent = message;
+        }
+        
+        function hideError(elementId) {
+            document.getElementById(elementId).classList.add('hidden');
+        }
+        
+        function showSuccess(elementId, message) {
+            const successEl = document.getElementById(elementId);
+            const successTextEl = document.getElementById(elementId + '-text');
+            successEl.classList.remove('hidden');
+            successTextEl.textContent = message;
+        }
+        
+        function hideSuccess(elementId) {
+            document.getElementById(elementId).classList.add('hidden');
+        }
+        
+        function setButtonLoading(buttonId, isLoading, loadingText = 'Loading...', normalText = 'Submit') {
+            const btn = document.getElementById(buttonId);
+            if (isLoading) {
+                btn.disabled = true;
+                btn.innerHTML = `
+                    <span class="flex items-center justify-center gap-2">
+                        <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        ${loadingText}
+                    </span>
+                `;
+            } else {
+                btn.disabled = false;
+                btn.textContent = normalText;
+            }
+        }
+        
+        // Login Handler
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideError('login-error');
+            
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            
+            setButtonLoading('login-submit-btn', true, 'Signing in...', 'Sign In');
+            
+            try {
+                await window.firebaseModules.signInWithEmailAndPassword(
+                    window.firebaseAuth,
+                    email,
+                    password
+                );
+            } catch (err) {
+                let errorMessage = 'Login gagal. Silakan coba lagi.';
+                if (err.code === 'auth/user-not-found') {
+                    errorMessage = 'Email tidak ditemukan';
+                } else if (err.code === 'auth/wrong-password') {
+                    errorMessage = 'Password salah';
+                } else if (err.code === 'auth/invalid-email') {
+                    errorMessage = 'Format email tidak valid';
+                } else if (err.code === 'auth/invalid-credential') {
+                    errorMessage = 'Email atau password salah';
+                }
+                showError('login-error', errorMessage);
+                console.error('Login error:', err);
+            } finally {
+                setButtonLoading('login-submit-btn', false, 'Signing in...', 'Sign In');
+            }
+        });
+        
+        // Sign Up Handler
+        document.getElementById('signup-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideError('signup-error');
+            hideSuccess('signup-success');
+            
+            const name = document.getElementById('signup-name').value;
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            const confirmPassword = document.getElementById('signup-confirm-password').value;
+            
+            // Validation
+            if (!email || !name || !password || !confirmPassword) {
+                showError('signup-error', 'Please fill in all fields');
+                return;
+            }
+            
+            if (name.length < 2) {
+                showError('signup-error', 'Name must be at least 2 characters');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showError('signup-error', 'Password must be at least 6 characters');
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                showError('signup-error', 'Passwords do not match');
+                return;
+            }
+            
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                showError('signup-error', 'Please enter a valid email address');
+                return;
+            }
+            
+            setButtonLoading('signup-submit-btn', true, 'Creating account...', 'Sign Up');
+            
+            try {
+                const userCredential = await window.firebaseModules.createUserWithEmailAndPassword(
+                    window.firebaseAuth,
+                    email,
+                    password
+                );
+                
+                await window.firebaseModules.updateProfile(userCredential.user, {
+                    displayName: name
+                });
+                
+                showSuccess('signup-success', 'Account created successfully! Redirecting...');
+                
+                setTimeout(() => {
+                    showScreen('login');
+                    document.getElementById('signup-form').reset();
+                    hideSuccess('signup-success');
+                }, 2000);
+                
+            } catch (err) {
+                let errorMessage = 'Failed to create account. Please try again.';
+                if (err.code === 'auth/email-already-in-use') {
+                    errorMessage = 'Email already in use. Please use a different email.';
+                } else if (err.code === 'auth/weak-password') {
+                    errorMessage = 'Password is too weak. Please use a stronger password.';
+                } else if (err.code === 'auth/invalid-email') {
+                    errorMessage = 'Invalid email format.';
+                }
+                showError('signup-error', errorMessage);
+                console.error('Sign up error:', err);
+            } finally {
+                setButtonLoading('signup-submit-btn', false, 'Creating account...', 'Sign Up');
+            }
+        });
+        
+        // Screen switching
+        document.getElementById('switch-to-signup').addEventListener('click', () => {
+            showScreen('signup');
+            document.getElementById('login-form').reset();
+            hideError('login-error');
+        });
+        
+        document.getElementById('switch-to-login').addEventListener('click', () => {
+            showScreen('login');
+            document.getElementById('signup-form').reset();
+            hideError('signup-error');
+            hideSuccess('signup-success');
+        });
+        
+        // Password visibility toggle
+        document.getElementById('login-toggle-password').addEventListener('click', () => {
+            const input = document.getElementById('login-password');
+            const icon = document.getElementById('login-eye-icon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>';
+            } else {
+                input.type = 'password';
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>';
+            }
+        });
+        
+        document.getElementById('signup-toggle-password').addEventListener('click', () => {
+            const input = document.getElementById('signup-password');
+            const icon = document.getElementById('signup-eye-icon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>';
+            } else {
+                input.type = 'password';
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>';
+            }
+        });
+        
+        document.getElementById('signup-toggle-confirm-password').addEventListener('click', () => {
+            const input = document.getElementById('signup-confirm-password');
+            const icon = document.getElementById('signup-confirm-eye-icon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>';
+            } else {
+                input.type = 'password';
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>';
+            }
+        });
+        
+        // Forgot password
+        document.getElementById('forgot-password-btn').addEventListener('click', () => {
+            alert('Fitur Forgot Password belum diimplementasikan');
+        });
+        
+        // Logout Handler
+        document.getElementById('logout-btn').addEventListener('click', async () => {
+            try {
+                stopCamera();
+                await window.firebaseModules.signOut(window.firebaseAuth);
+            } catch (err) {
+                console.error('Logout error:', err);
+            }
+        });
+        
+       // Dashboard Camera Functions
+function fitCanvas() {
+  const video = document.getElementById('video-element');
+  const canvas = document.getElementById('overlay-canvas');
+  if (canvas && video) {
+    canvas.width = video.videoWidth || 720;
+    canvas.height = video.videoHeight || 640;
+  }
+}
+
+// GLOBAL
+let processingInterval = null;
+
+async function startCamera() {
+  try {
+    if (AppState.stream) stopCamera();
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        width: { ideal: 720 },
+        height: { ideal: 640 },
+        frameRate: { ideal: 15, max: 20 },
+        facingMode: 'user'
+      },
+      audio: false
+    });
+
+    const video = document.getElementById('video-element');
+    if (video) {
+      video.srcObject = stream;
+      AppState.stream = stream;
+      await video.play();
+      fitCanvas();
+      startLoop();
+    }
+
+  } catch (e) {
+    alert('Gagal mengakses kamera: ' + e.message);
+    console.error(e);
+  }
+}
+
+// LOOP TERKONTROL (ANTI FREEZE)
+function startLoop() {
+  if (processingInterval) return;
+
+  processingInterval = setInterval(() => {
+    if (typeof processFrame === "function") {
+      processFrame();
+    }
+  }, 300); // 3 FPS
+}
+
+
+        
+        function stopCamera() {
+  // 1. Hentikan loop processing (WAJIB)
+  if (processingInterval) {
+    clearInterval(processingInterval);
+    processingInterval = null;
+  }
+
+  // 2. Matikan kamera
+  if (AppState.stream) {
+    AppState.stream.getTracks().forEach(t => t.stop());
+    AppState.stream = null;
+  }
+
+  // 3. Bersihkan canvas
+  const canvas = document.getElementById('overlay-canvas');
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  // 4. Bersihkan memory OpenCV
+  if (AppState.prevGray) {
+    AppState.prevGray.delete();
+    AppState.prevGray = null;
+  }
+
+  console.log("Kamera & processing dihentikan");
+}
+
+        
+        function toggleROI() {
+            AppState.useROI = !AppState.useROI;
+            const btn = document.getElementById('toggle-roi-btn');
+            
+            if (AppState.useROI) {
+                const canvas = document.getElementById('overlay-canvas');
+                if (canvas) {
+                    const w = canvas.width * 0.6;
+                    const h = canvas.height * 0.6;
+                    AppState.roi = {
+                        x: (canvas.width - w) / 2,
+                        y: (canvas.height - h) / 2,
+                        w: w,
+                        h: h
+                    };
+                }
+                btn.textContent = 'ROI: On';
+                btn.classList.remove('bg-slate-200');
+                btn.classList.add('bg-emerald-600', 'text-white');
+            } else {
+                AppState.roi = null;
+                btn.textContent = 'ROI: Off';
+                btn.classList.remove('bg-emerald-600', 'text-white');
+                btn.classList.add('bg-slate-200');
+            }
+        }
+        
+        async function captureSnapshot() {
+            const canvas = document.getElementById('overlay-canvas');
+            const video = document.getElementById('video-element');
+            
+            if (!canvas || !video) return;
+            
+            const snap = document.createElement('canvas');
+            snap.width = canvas.width;
+            snap.height = canvas.height;
+            const sctx = snap.getContext('2d');
+            if (!sctx) return;
+            
+            sctx.drawImage(video, 0, 0, snap.width, snap.height);
+            sctx.drawImage(canvas, 0, 0);
+            const url = snap.toDataURL('image/jpeg', 0.9);
+            
+            // Upload to Firebase
+            try {
+                const filename = `captures/${Date.now()}.jpg`;
+                const imageRef = window.firebaseModules.sRef(window.firebaseStorage, filename);
+                await window.firebaseModules.uploadString(imageRef, url, 'data_url');
+                const downloadUrl = await window.firebaseModules.getDownloadURL(imageRef);
+                const timestamp = new Date().toISOString();
+                const metaRef = window.firebaseModules.push(window.firebaseModules.ref(window.firebaseDB, 'captures'));
+                await window.firebaseModules.set(metaRef, { timestamp, url: downloadUrl });
+                
+                AppState.captures.unshift({ url, timestamp });
+                renderCaptures();
+            } catch (err) {
+                console.error('Upload error:', err);
+                AppState.captures.unshift({ url, timestamp: new Date().toISOString() });
+                renderCaptures();
+            }
+        }
+        
+        function renderCaptures() {
+            const container = document.getElementById('captures-container');
+            container.innerHTML = '';
+            
+            AppState.captures.forEach((capture, idx) => {
+                const div = document.createElement('div');
+                div.className = 'border rounded-xl overflow-hidden';
+                div.innerHTML = `
+                    <img src="${capture.url}" alt="Capture" class="w-full h-28 object-cover">
+                    <div class="p-2 text-xs text-slate-600">
+                        ${new Date(capture.timestamp).toLocaleString('id-ID')}
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+        
+        function playBeep() {
+            if (!AppState.beepEnabled) return;
+            const audio = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3');
+            audio.play().catch(() => {});
+        }
+        
+        function playAbnormalBeep() {
+            if (!AppState.beepEnabled) return;
+            const audio = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3');
+            audio.play().catch(() => {});
+            setTimeout(() => {
+                const audio2 = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3');
+                audio2.play().catch(() => {});
+            }, 300);
+        }
+        
+        function saveMotionEvent(boxCount, totalArea) {
+            try {
+                const now = new Date().toISOString();
+                const dataRef = window.firebaseModules.push(window.firebaseModules.ref(window.firebaseDB, 'motion_events'));
+                window.firebaseModules.set(dataRef, { timestamp: now, boxCount, totalArea });
+            } catch (err) {
+                console.error('Save event error:', err);
+            }
+        }
+        
+        function saveAbnormalAlert(motionsPerMin) {
+            try {
+                const now = new Date().toISOString();
+                const alertRef = window.firebaseModules.push(window.firebaseModules.ref(window.firebaseDB, 'inkubator/alerts'));
+                window.firebaseModules.set(alertRef, {
+                    timestamp: now,
+                    type: 'abnormal_motion_frequency',
+                    motionsPerMinute: motionsPerMin,
+                    message: `Gerakan tidak normal: ${motionsPerMin} kali/menit (Normal: 6-9)`
+                });
+            } catch (err) {
+                console.error('Save alert error:', err);
+            }
+        }
+        
+        function updateMotionFrequency(hasMotionNow) {
+            const now = Date.now();
+            
+            // Remove timestamps older than 60 seconds
+            AppState.motionTimestamps = AppState.motionTimestamps.filter(ts => now - ts <= 60000);
+            
+            // Add new motion event
+            if (hasMotionNow) {
+                AppState.motionTimestamps.push(now);
+            }
+            
+            AppState.motionPerMinute = AppState.motionTimestamps.length;
+            document.getElementById('motion-per-minute').textContent = AppState.motionPerMinute;
+            
+            // Check if abnormal (>100 per minute for testing, should be >9 for real)
+            if (AppState.motionPerMinute > 100) {
+                if (!AppState.abnormalMotionAlert) {
+                    AppState.abnormalMotionAlert = true;
+                    document.getElementById('abnormal-alert').classList.remove('hidden');
+                    document.getElementById('abnormal-frequency').textContent = AppState.motionPerMinute;
+                    playAbnormalBeep();
+                    saveAbnormalAlert(AppState.motionPerMinute);
+                }
+            } else {
+                AppState.abnormalMotionAlert = false;
+                document.getElementById('abnormal-alert').classList.add('hidden');
+            }
+        }
+        
+        function processFrame() {
+  const video = document.getElementById('video-element');
+  const canvas = document.getElementById('overlay-canvas');
+
+  if (!AppState.cvReady || !video || video.readyState < 2 || !canvas) {
+    updateFPS();
+    return;
+  }
+
+  const cv = window.cv;
+  const w = canvas.width;
+  const h = canvas.height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+    
+            const frame = new cv.Mat(h, w, cv.CV_8UC4);
+            const gray = new cv.Mat();
+            const diff = new cv.Mat();
+            const blur = new cv.Mat();
+            const mask = new cv.Mat();
+            
+            ctx.drawImage(video, 0, 0, w, h);
+            const imgData = ctx.getImageData(0, 0, w, h);
+            frame.data.set(imgData.data);
+            
+            let rect = new cv.Rect(0, 0, w, h);
+            if (AppState.useROI && AppState.roi) {
+                rect = new cv.Rect(
+                    AppState.roi.x | 0,
+                    AppState.roi.y | 0,
+                    AppState.roi.w | 0,
+                    AppState.roi.h | 0
+                );
+            }
+            
+            cv.cvtColor(frame, gray, cv.COLOR_RGBA2GRAY);
+            cv.GaussianBlur(gray, blur, new cv.Size(5, 5), 0);
+            
+            if (!AppState.prevGray) {
+                AppState.prevGray = blur.clone();
+                frame.delete();
+                gray.delete();
+                updateFPS();
+                drawOverlay([], rect);
+                return;
+            }
+            
+            const currROI = blur.roi(rect);
+            const prevROI = AppState.prevGray.roi(rect);
+            cv.absdiff(currROI, prevROI, diff);
+            cv.threshold(diff, mask, AppState.threshold, 255, cv.THRESH_BINARY);
+            cv.dilate(mask, mask, cv.Mat.ones(3, 3, cv.CV_8U));
+            cv.erode(mask, mask, cv.Mat.ones(3, 3, cv.CV_8U));
+            
+            const contours = new cv.MatVector();
+            const hierarchy = new cv.Mat();
+            cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+            
+            const boxes = [];
+            for (let i = 0; i < contours.size(); i++) {
+                const cnt = contours.get(i);
+                const area = cv.contourArea(cnt);
+                if (area >= AppState.minArea) {
+                    const r = cv.boundingRect(cnt);
+                    boxes.push({
+                        x: r.x + rect.x,
+                        y: r.y + rect.y,
+                        w: r.width,
+                        h: r.height,
+                        a: area
+                    });
+                }
+                cnt.delete();
+            }
+            
+            const motionDetected = boxes.length > 0;
+            AppState.hasMotion = motionDetected;
+            document.getElementById('motion-status').textContent = motionDetected ? 'Ya' : 'Tidak';
+            
+            if (motionDetected) {
+                const now = performance.now();
+                if (now - AppState.lastEventTime > AppState.cooldown) {
+                    AppState.lastEventTime = now;
+                    AppState.eventCount++;
+                    document.getElementById('event-count').textContent = AppState.eventCount;
+                    
+                    AppState.alertVisible = true;
+                    const totalArea = boxes.reduce((s, b) => s + b.a, 0) | 0;
+                    AppState.alertDetail = `Jumlah objek: ${boxes.length}, total area: ${totalArea.toFixed(0)} px`;
+                    document.getElementById('motion-alert').classList.remove('hidden');
+                    document.getElementById('motion-alert-detail').textContent = AppState.alertDetail;
+                    
+                    playBeep();
+                    saveMotionEvent(boxes.length, totalArea);
+                }
+            } else {
+                AppState.alertVisible = false;
+                document.getElementById('motion-alert').classList.add('hidden');
+            }
+            
+            // Update motion frequency
+            updateMotionFrequency(motionDetected);
+            
+            drawOverlay(boxes, rect);
+            
+            AppState.prevGray.delete();
+            AppState.prevGray = blur.clone();
+            frame.delete();
+            gray.delete();
+            diff.delete();
+            mask.delete();
+            contours.delete();
+            hierarchy.delete();
+            currROI.delete();
+            prevROI.delete();
+            updateFPS();
+        }
+        
+        function updateFPS() {
+            const now = performance.now();
+            const dt = now - AppState.lastTs;
+            AppState.lastTs = now;
+            AppState.fps = Math.max(1, Math.round(1000 / dt));
+            document.getElementById('fps-display').textContent = AppState.fps;
+        }
+        
+        function drawOverlay(boxes, rect) {
+            const canvas = document.getElementById('overlay-canvas');
+            const video = document.getElementById('video-element');
+            if (!canvas || !video) return;
+            
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            if (AppState.useROI && rect) {
+                ctx.save();
+                ctx.strokeStyle = 'rgba(16,185,129,0.9)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([8, 6]);
+                ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+                ctx.restore();
+            }
+            
+            ctx.save();
+            ctx.strokeStyle = 'rgba(239,68,68,0.9)';
+            ctx.lineWidth = 3;
+            boxes.forEach(b => ctx.strokeRect(b.x, b.y, b.w, b.h));
+            ctx.restore();
+        }
+        
+        // Dashboard Event Listeners
+        document.getElementById('start-camera-btn').addEventListener('click', startCamera);
+        document.getElementById('stop-camera-btn').addEventListener('click', stopCamera);
+        document.getElementById('toggle-roi-btn').addEventListener('click', toggleROI);
+        document.getElementById('capture-btn').addEventListener('click', captureSnapshot);
+        
+        document.getElementById('beep-checkbox').addEventListener('change', (e) => {
+            AppState.beepEnabled = e.target.checked;
+        });
+        
+        document.getElementById('threshold-slider').addEventListener('input', (e) => {
+            AppState.threshold = Number(e.target.value);
+            document.getElementById('threshold-value').textContent = AppState.threshold;
+        });
+        
+        document.getElementById('minarea-slider').addEventListener('input', (e) => {
+            AppState.minArea = Number(e.target.value);
+            document.getElementById('minarea-value').textContent = AppState.minArea;
+        });
+        
+        document.getElementById('cooldown-slider').addEventListener('input', (e) => {
+            AppState.cooldown = Number(e.target.value);
+            document.getElementById('cooldown-value').textContent = AppState.cooldown;
+        });
+        
+        // ROI dragging
+        const canvas = document.getElementById('overlay-canvas');
+        canvas.addEventListener('mousedown', (e) => {
+            if (!AppState.useROI || !AppState.roi) return;
+            const r = canvas.getBoundingClientRect();
+            const x = e.clientX - r.left;
+            const y = e.clientY - r.top;
+            if (x > AppState.roi.x && x < AppState.roi.x + AppState.roi.w &&
+                y > AppState.roi.y && y < AppState.roi.y + AppState.roi.h) {
+                AppState.dragging = true;
+                AppState.dragOffset = { x: x - AppState.roi.x, y: y - AppState.roi.y };
+            }
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (!AppState.dragging || !AppState.roi) return;
+            const r = canvas.getBoundingClientRect();
+            const x = e.clientX - r.left;
+            const y = e.clientY - r.top;
+            AppState.roi.x = Math.max(0, Math.min(canvas.width - AppState.roi.w, x - AppState.dragOffset.x));
+            AppState.roi.y = Math.max(0, Math.min(canvas.height - AppState.roi.h, y - AppState.dragOffset.y));
+        });
+        
+        canvas.addEventListener('mouseup', () => {
+            AppState.dragging = false;
+        });
+        
+        canvas.addEventListener('mouseleave', () => {
+            AppState.dragging = false;
+        });
+        
+        // Initialize Dashboard Charts and Firebase Listener
+        function initializeDashboard() {
+            // Initialize charts
+            const tempCtx = document.getElementById('temp-chart').getContext('2d');
+            const humCtx = document.getElementById('hum-chart').getContext('2d');
+            
+            if (tempCtx) {
+  AppState.tempChart = new Chart(tempCtx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: 'Suhu (°C)',
+        data: [],
+        borderColor: 'rgb(255,99,132)',
+        backgroundColor: 'rgba(255,99,132,0.15)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 3,
+        pointHoverRadius: 6,
+        borderWidth: 2
+      }]
+    },
+    options: {
+      animation: false,
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          suggestedMin: 26,
+          suggestedMax: 35,
+          ticks: {
+            stepSize: 0.01,
+            callback: value => value.toFixed(2)
+          }
+        },
+        x: {
+          ticks: {
+            maxTicksLimit: 10
+          }
+        }
+      }
+    }
+  });
+}
+
+            
+            if (humCtx) {
+  AppState.humChart = new Chart(humCtx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: 'Kelembapan (%)',
+        data: [],
+        borderColor: 'rgb(54,162,235)',
+        backgroundColor: 'rgba(54,162,235,0.15)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 3,
+        pointHoverRadius: 6,
+        borderWidth: 2
+      }]
+    },
+    options: {
+      animation: false,
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          suggestedMin: 55,
+          suggestedMax: 65,
+          ticks: {
+            stepSize: 0.01,
+            callback: value => value
+          }
+        },
+        x: {
+          ticks: {
+            maxTicksLimit: 10
+          }
+        }
+      }
+    }
+  });
+}
+            
+            // Firebase realtime listener
+            const dataRef = window.firebaseModules.ref(window.firebaseDB, 'inkubator/realtime');
+            window.firebaseModules.onValue(dataRef, (snapshot) => {
+                const data = snapshot.val();
+                if (!data) return;
+                
+                const suhu = Number(data.suhu ?? NaN);
+                const kelembapan = Number(data.kelembapan ?? NaN);
+                const label = new Date().toLocaleTimeString('id-ID');
+                
+                if (AppState.tempChart && AppState.humChart) {
+                    AppState.tempChart.data.labels.push(label);
+                    AppState.tempChart.data.datasets[0].data.push(isNaN(suhu) ? null : suhu);
+                    
+                    AppState.humChart.data.labels.push(label);
+                    AppState.humChart.data.datasets[0].data.push(isNaN(kelembapan) ? null : kelembapan);
+                    
+                    if (AppState.tempChart.data.labels.length > 30) {
+                        AppState.tempChart.data.labels.shift();
+                        AppState.tempChart.data.datasets[0].data.shift();
+                        AppState.humChart.data.labels.shift();
+                        AppState.humChart.data.datasets[0].data.shift();
+                    }
+                    
+                    AppState.tempChart.update();
+                    AppState.humChart.update();
+                }
+            });
+        }
+        
+        // Check OpenCV readiness
+        const checkOpenCV = setInterval(() => {
+            if (window.cv && window.cv.Mat) {
+                AppState.cvReady = true;
+                clearInterval(checkOpenCV);
+                console.log('OpenCV ready');
+            }
+        }, 300);
+        
+        // Firebase Auth State Listener
+        window.addEventListener('firebase-ready', () => {
+            window.firebaseModules.onAuthStateChanged(window.firebaseAuth, (user) => {
+                AppState.currentUser = user;
+                
+                if (user) {
+                    showScreen('dashboard');
+                    initializeDashboard();
+                } else {
+                    showScreen('login');
+                    // Cleanup dashboard
+                    if (AppState.tempChart) {
+                        AppState.tempChart.destroy();
+                        AppState.tempChart = null;
+                    }
+                    if (AppState.humChart) {
+                        AppState.humChart.destroy();
+                        AppState.humChart = null;
+                    }
+                    stopCamera();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
